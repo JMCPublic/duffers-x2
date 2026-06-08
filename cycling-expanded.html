@@ -85,13 +85,16 @@
     .board-wrap {
       position: sticky;
       top: 16px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      -webkit-overflow-scrolling: touch;
     }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(var(--grid-cols), 1fr);
-      width: min(100%, 620px);
-      aspect-ratio: var(--grid-cols) / var(--grid-rows);
+      grid-template-columns: repeat(var(--grid-cols), var(--cell-size));
+      width: calc(var(--grid-cols) * var(--cell-size));
+      height: calc(var(--grid-rows) * var(--cell-size));
       border: 2px solid var(--ink);
       background: var(--ink);
       box-shadow: 0 10px 30px rgba(24, 32, 29, .18);
@@ -135,16 +138,32 @@
     }
 
     .cell input {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       border: 0;
       outline: 0;
       text-align: center;
       background: transparent;
-      color: var(--ink);
+      color: transparent;
+      caret-color: var(--ink);
       text-transform: uppercase;
-      font: 700 clamp(1rem, 3.1vw, 2rem) system-ui, sans-serif;
-      padding-top: 10%;
+      font-size: 16px;
+      padding: 0;
+      border-radius: 0;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    .cell .letter {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding-top: 12%;
+      color: var(--ink);
+      font: 800 calc(var(--cell-size) * .48) / 1 system-ui, sans-serif;
+      pointer-events: none;
     }
 
     .clues {
@@ -468,6 +487,7 @@
     function renderGrid() {
       grid.style.setProperty("--grid-cols", rows[0].length);
       grid.style.setProperty("--grid-rows", rows.length);
+      grid.style.setProperty("--cell-size", rows[0].length > 18 ? "32px" : "40px");
       rows.forEach((line, row) => {
         [...line].forEach((char, col) => {
           const cell = document.createElement("div");
@@ -485,8 +505,14 @@
 
           if (char === ".") {
             const input = document.createElement("input");
+            const letter = document.createElement("span");
+            letter.className = "letter";
             input.maxLength = 1;
             input.autocomplete = "off";
+            input.autocapitalize = "characters";
+            input.spellcheck = false;
+            input.setAttribute("autocorrect", "off");
+            input.setAttribute("enterkeyhint", "next");
             input.inputMode = "text";
             input.ariaLabel = `Row ${row + 1}, column ${col + 1}`;
             input.addEventListener("focus", () => selectCell(row, col));
@@ -498,7 +524,9 @@
               selectCell(row, col);
             });
             input.addEventListener("input", event => {
-              input.value = event.target.value.replace(/[^a-z]/gi, "").slice(-1).toUpperCase();
+              const typed = event.data && /^[a-z]$/i.test(event.data) ? event.data : event.target.value.replace(/[^a-z]/gi, "").slice(-1);
+              input.value = typed.toUpperCase();
+              letter.textContent = input.value;
               cell.classList.remove("wrong", "revealed");
               saveProgress();
               updateDoneClues();
@@ -506,6 +534,7 @@
             });
             input.addEventListener("keydown", event => handleKeys(event, row, col));
             cell.append(input);
+            cell.append(letter);
             cells.set(keyFor(row, col), { cell, input, row, col });
           }
 
@@ -603,6 +632,7 @@
     document.querySelector("#clear").addEventListener("click", () => {
       cells.forEach(({ input, cell }) => {
         input.value = "";
+        cell.querySelector(".letter").textContent = "";
         cell.classList.remove("wrong", "revealed");
       });
       saveProgress();
@@ -636,6 +666,7 @@
       keys.forEach(key => {
         const { input, cell } = cells.get(key);
         input.value = solution[key];
+        cell.querySelector(".letter").textContent = input.value;
         cell.classList.remove("wrong");
         cell.classList.add("revealed");
       });
@@ -678,7 +709,10 @@
         const progress = JSON.parse(localStorage.getItem(storageKey) || "{}");
         Object.entries(progress).forEach(([key, value]) => {
           const entry = cells.get(key);
-          if (entry && /^[A-Z]$/.test(value)) entry.input.value = value;
+          if (entry && /^[A-Z]$/.test(value)) {
+            entry.input.value = value;
+            entry.cell.querySelector(".letter").textContent = value;
+          }
         });
       } catch {
         localStorage.removeItem(storageKey);
