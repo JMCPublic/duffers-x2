@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>duffers x 2 Cycling Crossword</title>
+  <style>
+    :root {
+      --ink: #18201d;
+      --muted: #5f6b65;
+      --paper: #f7f1e4;
+      --line: #7c776b;
+      --cell: #fffaf0;
+      --block: #25231f;
+      --accent: #2f6f73;
+      --active: #d7ece8;
+      --selected: #f6d77b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background: linear-gradient(180deg, #e7dfcf, #f9f5ea 35%, #ddd2bf);
+    }
+
+    .shell {
+      width: min(1180px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 24px 0 32px;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 6px solid var(--ink);
+      padding-bottom: 12px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 4vw, 3.4rem);
+      line-height: .95;
+      letter-spacing: 0;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--ink);
+      border-radius: 6px;
+      background: #fffaf0;
+      color: var(--ink);
+      min-height: 38px;
+      padding: 0 14px;
+      font: 700 0.95rem system-ui, sans-serif;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: var(--active);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(360px, 620px) 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .board-wrap {
+      position: sticky;
+      top: 16px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(15, 1fr);
+      width: min(100%, 620px);
+      aspect-ratio: 1 / 1;
+      border: 2px solid var(--ink);
+      background: var(--ink);
+      box-shadow: 0 10px 30px rgba(24, 32, 29, .18);
+    }
+
+    .cell {
+      position: relative;
+      border: 1px solid var(--line);
+      background: var(--cell);
+      min-width: 0;
+    }
+
+    .cell.block {
+      background: var(--block);
+      border-color: var(--block);
+    }
+
+    .cell.active {
+      background: var(--active);
+    }
+
+    .cell.selected {
+      background: var(--selected);
+    }
+
+    .cell.wrong {
+      background: #f4c5bb;
+    }
+
+    .cell.revealed {
+      background: #dce8b6;
+    }
+
+    .cell .num {
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      font: 700 clamp(.48rem, 1.4vw, .72rem) system-ui, sans-serif;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .cell input {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      outline: 0;
+      text-align: center;
+      background: transparent;
+      color: var(--ink);
+      text-transform: uppercase;
+      font: 700 clamp(1rem, 3.1vw, 2rem) system-ui, sans-serif;
+      padding-top: 10%;
+    }
+
+    .clues {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(220px, 1fr));
+      gap: 20px;
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+      border-bottom: 2px solid var(--line);
+      padding-bottom: 4px;
+    }
+
+    ol {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+    }
+
+    li {
+      padding: 7px 8px;
+      border-radius: 6px;
+      line-height: 1.25;
+      cursor: pointer;
+    }
+
+    li.current {
+      background: var(--active);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+
+    li.done {
+      color: var(--muted);
+      text-decoration-line: line-through;
+      text-decoration-style: double;
+      text-decoration-color: #aeb7b1;
+      text-decoration-thickness: 1px;
+    }
+
+    .no {
+      display: inline-block;
+      width: 2ch;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: system-ui, sans-serif;
+    }
+
+    .note {
+      margin-top: 12px;
+      max-width: 620px;
+      color: var(--muted);
+      font: 0.95rem/1.45 system-ui, sans-serif;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .board-wrap {
+        position: static;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .shell {
+        width: min(100vw - 14px, 1180px);
+        padding-top: 12px;
+      }
+
+      header {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .controls {
+        justify-content: flex-start;
+      }
+
+      .clues {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+
+      .shell {
+        width: 100%;
+        padding: 0;
+      }
+
+      header {
+        margin-bottom: 14px;
+      }
+
+      .controls,
+      .note {
+        display: none;
+      }
+
+      .layout {
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+
+      .board-wrap {
+        position: static;
+      }
+
+      .grid {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <h1>duffers x 2 Crossword</h1>
+      <div class="controls" aria-label="Crossword controls">
+        <button id="check" type="button">Check</button>
+        <button id="reveal-clue" type="button">Reveal clue</button>
+        <button id="reveal" type="button">Reveal all</button>
+        <button id="clear" type="button">Clear</button>
+        <button id="print" type="button">Print</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <section class="board-wrap" aria-label="Crossword grid">
+        <div id="grid" class="grid"></div>
+        <p class="note">Type letters into the grid. Click a square or a clue to highlight that answer. Use the arrow keys to move around.</p>
+      </section>
+
+      <section class="clues" aria-label="Crossword clues">
+        <div>
+          <h2>Across</h2>
+          <ol id="across"></ol>
+        </div>
+        <div>
+          <h2>Down</h2>
+          <ol id="down"></ol>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const rows = [
+      "#.##...#####.##",
+      "#.####.........",
+      "#.####.#####.##",
+      ".......#####.##",
+      "#.####.##.##.##",
+      "#.##.#.#.......",
+      "####.#.##.##.##",
+      "##..........###",
+      "####.#.##.##.##",
+      "#.##.###.......",
+      "#.##.####.##.##",
+      "#.##.#####.#.##",
+      "#.#........#.##",
+      "#.##.#####.#.##",
+      "#........#.#.##"
+    ];
+
+    const clues = {
+      across: {
+        2: "Emirati WorldTeam backing Pogacar (3)",
+        5: "Dutch climber, 2023 Tour de France Femmes winner (9)",
+        6: "Van der Poel's Alpecin squad, shortened (7)",
+        9: "Belgian world and Olympic champion Lotte (7)",
+        10: "Danish Grand Tour star Jonas (10)",
+        13: "Belgian classics man Wout van ___ (7)",
+        15: "Spanish WorldTeam with a blue telephone-line past (8)",
+        16: "German-registered Trek WorldTeam (8)"
+      },
+      down: {
+        1: "Slovenian rider Primoz (6)",
+        3: "Belgian rider Remco (9)",
+        4: "British Olympic MTB champion Tom (7)",
+        7: "Slovenian superstar Tadej (7)",
+        8: "Dutch classics phenomenon Mathieu van der ___ (10)",
+        11: "Mexican Grand Tour prospect Isaac del ___ (7)",
+        12: "French WorldTeam Soudal Quick-Step, shortened (6)",
+        14: "Trek, as seen on many race bikes (4)"
+      }
+    };
+
+    const clueNumbers = {
+      "0,1": 1, "0,5": 2, "0,6": 3, "0,12": 4,
+      "1,6": 5,
+      "3,0": 6,
+      "4,9": 7,
+      "5,4": 8, "5,8": 9,
+      "7,2": 10,
+      "8,12": 11,
+      "9,1": 12, "9,8": 13,
+      "11,10": 14,
+      "12,3": 15,
+      "14,1": 16
+    };
+
+    const solutionRows = [
+      "#R##UAE#####P##",
+      "#O####VOLLERING",
+      "#G####E#####D##",
+      "ALPECIN#####C##",
+      "#I####E##P##O##",
+      "#C##V#P#KOPECKY",
+      "####A#O##G##K##",
+      "##VINGEGAARD###",
+      "####D#L##C##D##",
+      "#S##E###VANAERT",
+      "#O##R####R##L##",
+      "#U##P#####T#T##",
+      "#D#MOVISTAR#O##",
+      "#A##E#####E#R##",
+      "#LIDLTREK#K#O##"
+    ];
+    const solution = {};
+    let direction = "across";
+    let selected = null;
+    const storageKey = "duffers-x2-cycling-crossword-progress";
+    const grid = document.querySelector("#grid");
+    const cells = new Map();
+
+    function keyFor(row, col) {
+      return `${row},${col}`;
+    }
+
+    function isOpen(row, col) {
+      return rows[row] && rows[row][col] === ".";
+    }
+
+    function startNumber(row, col, dir) {
+      let r = row;
+      let c = col;
+      if (dir === "across") {
+        while (c > 0 && isOpen(r, c - 1)) c--;
+      } else {
+        while (r > 0 && isOpen(r - 1, c)) r--;
+      }
+      return clueNumbers[keyFor(r, c)];
+    }
+
+    function answerCells(row, col, dir) {
+      const answer = [];
+      let r = row;
+      let c = col;
+      if (dir === "across") {
+        while (c > 0 && isOpen(r, c - 1)) c--;
+        while (isOpen(r, c)) answer.push(keyFor(r, c++));
+      } else {
+        while (r > 0 && isOpen(r - 1, c)) r--;
+        while (isOpen(r, c)) answer.push(keyFor(r++, c));
+      }
+      return answer;
+    }
+
+    function hasClue(row, col, dir) {
+      const no = startNumber(row, col, dir);
+      return no && clues[dir][no];
+    }
+
+    function renderGrid() {
+      rows.forEach((line, row) => {
+        [...line].forEach((char, col) => {
+          const cell = document.createElement("div");
+          cell.className = char === "#" ? "cell block" : "cell";
+          cell.dataset.row = row;
+          cell.dataset.col = col;
+
+          const no = clueNumbers[keyFor(row, col)];
+          if (no) {
+            const number = document.createElement("span");
+            number.className = "num";
+            number.textContent = no;
+            cell.append(number);
+          }
+
+          if (char === ".") {
+            const input = document.createElement("input");
+            input.maxLength = 1;
+            input.autocomplete = "off";
+            input.inputMode = "text";
+            input.ariaLabel = `Row ${row + 1}, column ${col + 1}`;
+            input.addEventListener("focus", () => selectCell(row, col));
+            input.addEventListener("click", () => {
+              const other = direction === "across" ? "down" : "across";
+              if (selected && selected.row === row && selected.col === col && hasClue(row, col, other)) {
+                direction = other;
+              }
+              selectCell(row, col);
+            });
+            input.addEventListener("input", event => {
+              input.value = event.target.value.replace(/[^a-z]/gi, "").slice(-1).toUpperCase();
+              cell.classList.remove("wrong", "revealed");
+              saveProgress();
+              updateDoneClues();
+              if (input.value) moveNext(row, col, direction, 1);
+            });
+            input.addEventListener("keydown", event => handleKeys(event, row, col));
+            cell.append(input);
+            cells.set(keyFor(row, col), { cell, input, row, col });
+          }
+
+          grid.append(cell);
+        });
+      });
+    }
+
+    function renderClues() {
+      for (const dir of ["across", "down"]) {
+        const list = document.querySelector(`#${dir}`);
+        Object.entries(clues[dir]).forEach(([number, text]) => {
+          const item = document.createElement("li");
+          item.dataset.dir = dir;
+          item.dataset.no = number;
+          item.innerHTML = `<span class="no">${number}</span> ${text}`;
+          item.addEventListener("click", () => selectClue(dir, Number(number)));
+          list.append(item);
+        });
+      }
+    }
+
+    function selectCell(row, col) {
+      selected = { row, col };
+      if (!hasClue(row, col, direction)) {
+        direction = hasClue(row, col, "across") ? "across" : "down";
+      }
+      highlight();
+    }
+
+    function selectClue(dir, no) {
+      direction = dir;
+      const start = Object.entries(clueNumbers).find(([pos, number]) => {
+        if (number !== no) return false;
+        const [row, col] = pos.split(",").map(Number);
+        return dir === "across"
+          ? (!isOpen(row, col - 1) && isOpen(row, col + 1))
+          : (!isOpen(row - 1, col) && isOpen(row + 1, col));
+      });
+      if (!start) return;
+      const [row, col] = start[0].split(",").map(Number);
+      selected = { row, col };
+      cells.get(keyFor(row, col)).input.focus();
+      highlight();
+    }
+
+    function highlight() {
+      document.querySelectorAll(".cell").forEach(cell => cell.classList.remove("active", "selected"));
+      document.querySelectorAll("li").forEach(item => item.classList.remove("current"));
+      if (!selected) return;
+
+      const answer = answerCells(selected.row, selected.col, direction);
+      answer.forEach(key => cells.get(key).cell.classList.add("active"));
+      cells.get(keyFor(selected.row, selected.col)).cell.classList.add("selected");
+
+      const no = startNumber(selected.row, selected.col, direction);
+      const clue = document.querySelector(`li[data-dir="${direction}"][data-no="${no}"]`);
+      if (clue) clue.classList.add("current");
+    }
+
+    function moveNext(row, col, dir, step) {
+      let r = row + (dir === "down" ? step : 0);
+      let c = col + (dir === "across" ? step : 0);
+      while (isOpen(r, c)) {
+        const next = cells.get(keyFor(r, c));
+        next.input.focus();
+        return;
+      }
+    }
+
+    function handleKeys(event, row, col) {
+      const key = event.key;
+      if (key === "Backspace" && !event.target.value) {
+        event.preventDefault();
+        moveNext(row, col, direction, -1);
+        return;
+      }
+      if (key === "ArrowRight" || key === "ArrowLeft") {
+        event.preventDefault();
+        direction = "across";
+        moveNext(row, col, direction, key === "ArrowRight" ? 1 : -1);
+      }
+      if (key === "ArrowDown" || key === "ArrowUp") {
+        event.preventDefault();
+        direction = "down";
+        moveNext(row, col, direction, key === "ArrowDown" ? 1 : -1);
+      }
+      if (key === " " || key === "Tab") {
+        if (key === " ") event.preventDefault();
+        direction = direction === "across" ? "down" : "across";
+        highlight();
+      }
+    }
+
+    document.querySelector("#clear").addEventListener("click", () => {
+      cells.forEach(({ input, cell }) => {
+        input.value = "";
+        cell.classList.remove("wrong", "revealed");
+      });
+      saveProgress();
+      updateDoneClues();
+      const first = cells.get("0,1");
+      first.input.focus();
+    });
+
+    document.querySelector("#check").addEventListener("click", () => {
+      let filled = 0;
+      let wrong = 0;
+      cells.forEach(({ input, cell }, key) => {
+        cell.classList.remove("wrong", "revealed");
+        if (!input.value) return;
+        filled++;
+        if (input.value !== solution[key]) {
+          wrong++;
+          cell.classList.add("wrong");
+        }
+      });
+      if (!filled) {
+        alert("No letters entered yet.");
+      } else if (wrong) {
+        alert(`${wrong} filled square${wrong === 1 ? "" : "s"} need another look.`);
+      } else {
+        alert("Every filled square is correct.");
+      }
+    });
+
+    function revealKeys(keys) {
+      keys.forEach(key => {
+        const { input, cell } = cells.get(key);
+        input.value = solution[key];
+        cell.classList.remove("wrong");
+        cell.classList.add("revealed");
+      });
+      saveProgress();
+      updateDoneClues();
+    }
+
+    document.querySelector("#reveal-clue").addEventListener("click", () => {
+      if (!selected) {
+        alert("Select a square or clue first.");
+        return;
+      }
+      revealKeys(answerCells(selected.row, selected.col, direction));
+    });
+
+    document.querySelector("#reveal").addEventListener("click", () => {
+      revealKeys([...cells.keys()]);
+    });
+
+    document.querySelector("#print").addEventListener("click", () => window.print());
+
+    solutionRows.forEach((line, row) => {
+      [...line].forEach((char, col) => {
+        if (char !== "#") solution[keyFor(row, col)] = char;
+      });
+    });
+
+    renderGrid();
+    renderClues();
+    function saveProgress() {
+      const progress = {};
+      cells.forEach(({ input }, key) => {
+        if (input.value) progress[key] = input.value;
+      });
+      localStorage.setItem(storageKey, JSON.stringify(progress));
+    }
+
+    function loadProgress() {
+      try {
+        const progress = JSON.parse(localStorage.getItem(storageKey) || "{}");
+        Object.entries(progress).forEach(([key, value]) => {
+          const entry = cells.get(key);
+          if (entry && /^[A-Z]$/.test(value)) entry.input.value = value;
+        });
+      } catch {
+        localStorage.removeItem(storageKey);
+      }
+    }
+
+    function updateDoneClues() {
+      document.querySelectorAll("li").forEach(item => {
+        const dir = item.dataset.dir;
+        const no = Number(item.dataset.no);
+        const start = Object.entries(clueNumbers).find(([pos, number]) => {
+          if (number !== no) return false;
+          const [row, col] = pos.split(",").map(Number);
+          return dir === "across"
+            ? (!isOpen(row, col - 1) && isOpen(row, col + 1))
+            : (!isOpen(row - 1, col) && isOpen(row + 1, col));
+        });
+        if (!start) return;
+        const [row, col] = start[0].split(",").map(Number);
+        const complete = answerCells(row, col, dir).every(key => cells.get(key).input.value);
+        item.classList.toggle("done", complete);
+      });
+    }
+
+    loadProgress();
+    updateDoneClues();
+    cells.get("0,1").input.focus();
+  </script>
+</body>
+</html>
