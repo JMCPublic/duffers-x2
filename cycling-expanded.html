@@ -90,8 +90,9 @@
     .grid {
       display: grid;
       grid-template-columns: repeat(var(--grid-cols), 1fr);
+      grid-template-rows: repeat(var(--grid-rows), 1fr);
       width: min(100%, 620px);
-      aspect-ratio: var(--grid-cols) / var(--grid-rows);
+      aspect-ratio: 1 / 1;
       border: 2px solid var(--ink);
       background: var(--ink);
       box-shadow: 0 10px 30px rgba(24, 32, 29, .18);
@@ -273,6 +274,7 @@
       <h1>duffers x 2 Crossword</h1>
       <div class="controls" aria-label="Crossword controls">
         <button id="check" type="button">Check</button>
+        <button id="reveal-first" type="button">Reveal first letter</button>
         <button id="reveal-clue" type="button">Reveal clue</button>
         <button id="reveal" type="button">Reveal all</button>
         <button id="clear" type="button">Clear</button>
@@ -351,7 +353,8 @@
       "##.#.##.########.......",
       "##.#.#.......##.#.####.",
       "....###.######.......#.",
-      "#####.......###.#######"
+      "#####.......###.#######",
+      "#######################"
     ];
 
     const clues = {
@@ -447,7 +450,8 @@
       "##T#I##A########KOPECKY",
       "##A#S#BAHRAIN##U#M####O",
       "BORA###R######CARAPAZ#N",
-      "#####PIDCOCK###E#######"
+      "#####PIDCOCK###E#######",
+      "#######################"
     ];
     const solution = {};
     let direction = "across";
@@ -773,6 +777,15 @@
       saveProgress();
       updateDoneClues();
     }
+    document.querySelector("#reveal-first").addEventListener("click", () => {
+      if (!selected) {
+        alert("Select a square or clue first.");
+        return;
+      }
+      const keys = answerCells(selected.row, selected.col, direction);
+      const key = keys.find(candidate => !cells.get(candidate).input.value) || keys[0];
+      revealKeys([key]);
+    });
 
     document.querySelector("#reveal-clue").addEventListener("click", () => {
       if (!selected) {

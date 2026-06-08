@@ -273,6 +273,7 @@
       <h1>duffers x 2 Crossword</h1>
       <div class="controls" aria-label="Crossword controls">
         <button id="check" type="button">Check</button>
+        <button id="reveal-first" type="button">Reveal first letter</button>
         <button id="reveal-clue" type="button">Reveal clue</button>
         <button id="reveal" type="button">Reveal all</button>
         <button id="clear" type="button">Clear</button>
@@ -723,6 +724,15 @@
       saveProgress();
       updateDoneClues();
     }
+    document.querySelector("#reveal-first").addEventListener("click", () => {
+      if (!selected) {
+        alert("Select a square or clue first.");
+        return;
+      }
+      const keys = answerCells(selected.row, selected.col, direction);
+      const key = keys.find(candidate => !cells.get(candidate).input.value) || keys[0];
+      revealKeys([key]);
+    });
 
     document.querySelector("#reveal-clue").addEventListener("click", () => {
       if (!selected) {
