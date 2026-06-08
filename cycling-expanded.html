@@ -89,10 +89,10 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(var(--grid-cols), 1fr);
-      grid-template-rows: repeat(var(--grid-rows), 1fr);
-      width: min(100%, 620px);
-      aspect-ratio: 1 / 1;
+      grid-template-columns: repeat(var(--grid-cols), var(--cell-size));
+      grid-template-rows: repeat(var(--grid-rows), var(--cell-size));
+      width: calc(var(--grid-cols) * var(--cell-size));
+      height: calc(var(--grid-rows) * var(--cell-size));
       border: 2px solid var(--ink);
       background: var(--ink);
       box-shadow: 0 10px 30px rgba(24, 32, 29, .18);
@@ -279,6 +279,9 @@
         <button id="reveal" type="button">Reveal all</button>
         <button id="clear" type="button">Clear</button>
         <button id="print" type="button">Print</button>
+        <button id="share" type="button">Share</button>
+        <button id="whatsapp" type="button">WhatsApp</button>
+        <button id="email" type="button">Email</button>
       </div>
     </header>
 
@@ -587,6 +590,7 @@
     function renderGrid() {
       grid.style.setProperty("--grid-cols", rows[0].length);
       grid.style.setProperty("--grid-rows", rows.length);
+      grid.style.setProperty("--cell-size", "26px");
       rows.forEach((line, row) => {
         [...line].forEach((char, col) => {
           const cell = document.createElement("div");
@@ -617,7 +621,7 @@
               selectCell(row, col);
             });
             input.addEventListener("input", event => {
-              input.value = event.target.value.replace(/[^a-z]/gi, "").slice(-1).toUpperCase();
+              input.value = event.target.value.replace(/[^a-z0-9]/gi, "").slice(-1).toUpperCase();
               cell.classList.remove("wrong", "revealed");
               saveProgress();
               updateDoneClues();
@@ -798,8 +802,33 @@
     document.querySelector("#reveal").addEventListener("click", () => {
       revealKeys([...cells.keys()]);
     });
-
     document.querySelector("#print").addEventListener("click", () => window.print());
+
+    function shareText() {
+      return "Try this duffers x 2 cycling crossword: " + window.location.href;
+    }
+
+    async function sharePage() {
+      const text = shareText();
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: document.title, text, url: window.location.href });
+          return;
+        } catch (error) {
+          if (error.name === "AbortError") return;
+        }
+      }
+      window.location.href = "mailto:?subject=" + encodeURIComponent(document.title) + "&body=" + encodeURIComponent(text);
+    }
+
+    document.querySelector("#share").addEventListener("click", sharePage);
+    document.querySelector("#whatsapp").addEventListener("click", () => {
+      window.open("https://wa.me/?text=" + encodeURIComponent(shareText()), "_blank", "noopener");
+    });
+    document.querySelector("#email").addEventListener("click", () => {
+      window.location.href = "mailto:?subject=" + encodeURIComponent(document.title) + "&body=" + encodeURIComponent(shareText());
+    });
+
 
     solutionRows.forEach((line, row) => {
       [...line].forEach((char, col) => {
@@ -822,7 +851,7 @@
         const progress = JSON.parse(localStorage.getItem(storageKey) || "{}");
         Object.entries(progress).forEach(([key, value]) => {
           const entry = cells.get(key);
-          if (entry && /^[A-Z]$/.test(value)) entry.input.value = value;
+          if (entry && /^[A-Z0-9]$/.test(value)) entry.input.value = value;
         });
       } catch {
         localStorage.removeItem(storageKey);

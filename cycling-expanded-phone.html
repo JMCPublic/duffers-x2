@@ -310,7 +310,7 @@
       bottom: 0;
       z-index: 10;
       display: none;
-      grid-template-columns: repeat(9, 1fr);
+      grid-template-columns: repeat(10, 1fr);
       gap: 6px;
       padding: 8px;
       border-top: 2px solid var(--ink);
@@ -326,6 +326,10 @@
 
     .keypad .wide {
       grid-column: span 2;
+    }
+
+    .keypad .extra-wide {
+      grid-column: span 4;
     }
 
     @media (max-width: 900px) {
@@ -430,6 +434,9 @@
         <button id="reveal" type="button">Reveal all</button>
         <button id="clear" type="button">Clear</button>
         <button id="print" type="button">Print</button>
+        <button id="share" type="button">Share</button>
+        <button id="whatsapp" type="button">WhatsApp</button>
+        <button id="email" type="button">Email</button>
       </div>
     </header>
 
@@ -608,6 +615,7 @@
     const solution = {};
     let direction = "across";
     let selected = null;
+    let nativeKeyboard = false;
     const storageKey = "duffers-x2-cycling-crossword-progress";
     const timerStorageKey = storageKey + "-timer";
     const scratchStorageKey = storageKey + "-scratch";
@@ -786,7 +794,7 @@
               selectCell(row, col);
             });
             input.addEventListener("input", event => {
-              const typed = event.data && /^[a-z]$/i.test(event.data) ? event.data : event.target.value.replace(/[^a-z]/gi, "").slice(-1);
+              const typed = event.data && /^[a-z0-9]$/i.test(event.data) ? event.data : event.target.value.replace(/[^a-z0-9]/gi, "").slice(-1);
               input.value = typed.toUpperCase();
               letter.textContent = input.value;
               cell.classList.remove("wrong", "revealed");
@@ -896,7 +904,7 @@
     }
 
     function typeLetter(letter) {
-      if (!selected || !/^[A-Z]$/.test(letter)) return;
+      if (!selected || !/^[A-Z0-9]$/.test(letter)) return;
       const entry = cells.get(keyFor(selected.row, selected.col));
       setEntryValue(entry, letter);
       moveNext(selected.row, selected.col, direction, 1);
@@ -915,7 +923,7 @@
 
     function handleKeys(event, row, col) {
       const key = event.key;
-      if (/^[a-z]$/i.test(key)) {
+      if (/^[a-z0-9]$/i.test(key)) {
         event.preventDefault();
         typeLetter(key.toUpperCase());
         return;
@@ -1006,8 +1014,47 @@
     document.querySelector("#reveal").addEventListener("click", () => {
       revealKeys([...cells.keys()]);
     });
-
     document.querySelector("#print").addEventListener("click", () => window.print());
+
+    function shareText() {
+      return "Try this duffers x 2 cycling crossword: " + window.location.href;
+    }
+
+    async function sharePage() {
+      const text = shareText();
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: document.title, text, url: window.location.href });
+          return;
+        } catch (error) {
+          if (error.name === "AbortError") return;
+        }
+      }
+      window.location.href = "mailto:?subject=" + encodeURIComponent(document.title) + "&body=" + encodeURIComponent(text);
+    }
+
+    document.querySelector("#share").addEventListener("click", sharePage);
+    document.querySelector("#whatsapp").addEventListener("click", () => {
+      window.open("https://wa.me/?text=" + encodeURIComponent(shareText()), "_blank", "noopener");
+    });
+    document.querySelector("#email").addEventListener("click", () => {
+      window.location.href = "mailto:?subject=" + encodeURIComponent(document.title) + "&body=" + encodeURIComponent(shareText());
+    });
+
+
+    function updateNativeInputs() {
+      cells.forEach(({ input }) => {
+        input.readOnly = !nativeKeyboard;
+      });
+      const toggle = document.querySelector("#native-toggle");
+      if (toggle) toggle.textContent = nativeKeyboard ? "Page keys" : "Phone keys";
+      if (nativeKeyboard && selected) cells.get(keyFor(selected.row, selected.col)).input.focus();
+    }
+
+    function toggleNativeKeyboard() {
+      nativeKeyboard = !nativeKeyboard;
+      updateNativeInputs();
+    }
 
     function renderKeypad() {
       const keypad = document.querySelector("#keypad");
@@ -1018,13 +1065,21 @@
         if (className) button.className = className;
         button.addEventListener("click", action);
         keypad.append(button);
+        return button;
       };
       makeButton("Back", () => stepSelection(-1), "wide");
       makeButton("Clear", deleteLetter, "wide");
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(letter => {
-        makeButton(letter, () => typeLetter(letter));
-      });
+      const native = makeButton("Phone keys", toggleNativeKeyboard, "extra-wide");
+      native.id = "native-toggle";
       makeButton("Next", () => stepSelection(1), "wide");
+      "1234567890".split("").forEach(value => makeButton(value, () => typeLetter(value)));
+      "QWERTYUIOP".split("").forEach(value => makeButton(value, () => typeLetter(value)));
+      "ASDFGHJKL".split("").forEach(value => makeButton(value, () => typeLetter(value)));
+      makeButton("", () => {}, "");
+      "ZXCVBNM".split("").forEach(value => makeButton(value, () => typeLetter(value)));
+      makeButton("", () => {}, "");
+      makeButton("", () => {}, "");
+      updateNativeInputs();
     }
 
     solutionRows.forEach((line, row) => {
@@ -1049,7 +1104,7 @@
         const progress = JSON.parse(localStorage.getItem(storageKey) || "{}");
         Object.entries(progress).forEach(([key, value]) => {
           const entry = cells.get(key);
-          if (entry && /^[A-Z]$/.test(value)) {
+          if (entry && /^[A-Z0-9]$/.test(value)) {
             entry.input.value = value;
             entry.cell.querySelector(".letter").textContent = value;
           }
