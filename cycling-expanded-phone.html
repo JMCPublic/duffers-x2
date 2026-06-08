@@ -332,6 +332,18 @@
       grid-column: span 4;
     }
 
+    .keypad.native-mode {
+      grid-template-columns: 1fr;
+    }
+
+    .keypad.native-mode button:not(#native-toggle) {
+      display: none;
+    }
+
+    .keypad.native-mode #native-toggle {
+      grid-column: 1 / -1;
+    }
+
     @media (max-width: 900px) {
       .layout {
         grid-template-columns: 1fr;
@@ -1046,6 +1058,8 @@
       cells.forEach(({ input }) => {
         input.readOnly = !nativeKeyboard;
       });
+      const keypad = document.querySelector("#keypad");
+      if (keypad) keypad.classList.toggle("native-mode", nativeKeyboard);
       const toggle = document.querySelector("#native-toggle");
       if (toggle) toggle.textContent = nativeKeyboard ? "Page keys" : "Phone keys";
       if (nativeKeyboard && selected) cells.get(keyFor(selected.row, selected.col)).input.focus();
