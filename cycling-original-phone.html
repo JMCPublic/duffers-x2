@@ -85,13 +85,16 @@
     .board-wrap {
       position: sticky;
       top: 16px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      -webkit-overflow-scrolling: touch;
     }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(var(--grid-cols), 1fr);
-      width: min(100%, 620px);
-      aspect-ratio: var(--grid-cols) / var(--grid-rows);
+      grid-template-columns: repeat(var(--grid-cols), var(--cell-size));
+      width: calc(var(--grid-cols) * var(--cell-size));
+      height: calc(var(--grid-rows) * var(--cell-size));
       border: 2px solid var(--ink);
       background: var(--ink);
       box-shadow: 0 10px 30px rgba(24, 32, 29, .18);
@@ -135,16 +138,32 @@
     }
 
     .cell input {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       border: 0;
       outline: 0;
       text-align: center;
       background: transparent;
-      color: var(--ink);
+      color: transparent;
+      caret-color: var(--ink);
       text-transform: uppercase;
-      font: 700 clamp(1rem, 3.1vw, 2rem) system-ui, sans-serif;
-      padding-top: 10%;
+      font-size: 16px;
+      padding: 0;
+      border-radius: 0;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    .cell .letter {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding-top: 7%;
+      color: var(--ink);
+      font: 900 calc(var(--cell-size) * .62) / 1 system-ui, sans-serif;
+      pointer-events: none;
     }
 
     .clues {
@@ -203,6 +222,27 @@
       font: 0.95rem/1.45 system-ui, sans-serif;
     }
 
+    .keypad {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 10;
+      display: none;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 6px;
+      padding: 8px;
+      border-top: 2px solid var(--ink);
+      background: rgba(247, 241, 228, .98);
+      box-shadow: 0 -8px 20px rgba(24, 32, 29, .14);
+    }
+
+    .keypad button {
+      min-height: 38px;
+      padding: 0;
+      font-size: 1rem;
+    }
+
     @media (max-width: 900px) {
       .layout {
         grid-template-columns: 1fr;
@@ -214,6 +254,10 @@
     }
 
     @media (max-width: 560px) {
+      body {
+        padding-bottom: 146px;
+      }
+
       .shell {
         width: min(100vw - 14px, 1180px);
         padding-top: 12px;
@@ -228,8 +272,30 @@
         justify-content: flex-start;
       }
 
+      h1 {
+        font-size: 1.9rem;
+      }
+
+      .board-wrap {
+        margin-inline: -7px;
+      }
+
+      .grid {
+        border-width: 1px;
+      }
+
+      .cell .num {
+        top: 1px;
+        left: 3px;
+        font-size: .58rem;
+      }
+
       .clues {
         grid-template-columns: 1fr;
+      }
+
+      .keypad {
+        display: grid;
       }
     }
 
@@ -248,7 +314,8 @@
       }
 
       .controls,
-      .note {
+      .note,
+      .keypad {
         display: none;
       }
 
@@ -298,127 +365,80 @@
       </section>
     </div>
   </main>
+  <div id="keypad" class="keypad" aria-label="Crossword keypad"></div>
 
   <script>
     const rows = [
-      "##......####.####.#####",
-      "###.####.##.....#......",
-      "###.##.....#.##.#.#####",
-      "###.####.##...#.#.#####",
-      "##.......###.#.......##",
-      "###.####.##.###.#.#.#.#",
-      "#####.##.##.###.#.#.#.#",
-      "####.............##.#.#",
-      "...##.#####.#######.#.#",
-      ".####.#####...........#",
-      ".##.........#.#####.#.#",
-      ".##.#.###.#.#.###.#.#.#",
-      ".##.#.#.#.#.#.###.#.#.#",
-      ".#.#.##...........###.#",
-      ".#.#.##.#.#.#####.###.#",
-      ".#.#.##.###.........##.",
-      ".........##.###.#.####.",
-      "##.#.##.#.....###.####.",
-      "##.#.##.########.......",
-      "##.#.#.......##.#.####.",
-      "....###.######.......#.",
-      "#####.......###.#######"
+      "#.##...#####.##",
+      "#.####.........",
+      "#.####.#####.##",
+      ".......#####.##",
+      "#.####.##.##.##",
+      "#.##.#.#.......",
+      "####.#.##.##.##",
+      "##..........###",
+      "####.#.##.##.##",
+      "#.##.###.......",
+      "#.##.####.##.##",
+      "#.##.#####.#.##",
+      "#.#........#.##",
+      "#.##.#####.#.##",
+      "#........#.#.##"
     ];
 
     const clues = {
       across: {
-        1: "Kazakh WorldTeam, long associated with sky-blue kit (6)",
-        6: "Basque climber Mikel (5)",
-        8: "Premier Tech-backed WorldTeam from the Middle East (6)",
-        9: "British WorldTeam formerly called Sky (5)",
-        10: "Norwegian mobility team now in the top tier (3)",
-        11: "Belgian classics star Wout van ___ (7)",
-        12: "Belgian sprinter Tim (7)",
-        17: "Italian rider Elisa, classics and stage-race force (13)",
-        18: "Swiss-named pro team with a number in its title (3)",
-        19: "French showman Julian (11)",
-        21: "French team with an outdoor retail sponsor (9)",
-        27: "French WorldTeam with Wanty roots (11)",
-        28: "Dutch climber Demi (9)",
-        31: "Belgian sprinter Jasper (9)",
-        32: "British racing brothers' surname (5)",
-        33: "Belgian champion Lotte (7)",
-        34: "Gulf-backed WorldTeam, Victorious in full (7)",
-        36: "Red Bull-___-hansgrohe (4)",
-        37: "Ecuadorian Olympic road champion Richard (7)",
-        38: "British Olympic MTB champion Tom (7)"
+        2: "Emirati WorldTeam backing Pogacar (3)",
+        5: "Dutch climber, 2023 Tour de France Femmes winner (9)",
+        6: "Van der Poel's Alpecin squad, shortened (7)",
+        9: "Belgian world and Olympic champion Lotte (7)",
+        10: "Danish Grand Tour star Jonas (10)",
+        13: "Belgian classics man Wout van ___ (7)",
+        15: "Spanish WorldTeam with a blue telephone-line past (8)",
+        16: "German-registered Trek WorldTeam (8)"
       },
       down: {
-        2: "Quick-Step co-sponsor before the wolfpack name (6)",
-        3: "Italian time-trial powerhouse Filippo (5)",
-        4: "Australian Grand Tour winner Jai (7)",
-        5: "Mexican prospect Isaac del ___ (7)",
-        7: "Van der Poel's squad, shortened (7)",
-        13: "Belgian grand-tour and time-trial ace Remco (9)",
-        14: "French multi-discipline Olympic champion Pauline Ferrand-___ (6)",
-        15: "Dutch classics phenomenon Mathieu van der ___ (10)",
-        16: "Slovenian superstar Tadej (7)",
-        18: "Soudal ___-Step (9)",
-        20: "French WorldTeam Arkea-B&B Hotels, shortened (5)",
-        21: "Team Picnic PostNL's former three-letter name (3)",
-        22: "Belgian team name now paired with Dstny (5)",
-        23: "Polish Tour de France Femmes winner Kasia (10)",
-        24: "Danish Grand Tour star Jonas (10)",
-        25: "Spanish WorldTeam with a blue telephone-line past (8)",
-        26: "French squad with a red-and-white kit (7)",
-        29: "American team formerly Education First, initials (2)",
-        30: "Bike brand backing a women's WorldTeam with SRAM (6)",
-        35: "Emirati WorldTeam backing Pogacar (3)"
+        1: "Slovenian rider Primoz (6)",
+        3: "Belgian rider Remco (9)",
+        4: "British Olympic MTB champion Tom (7)",
+        7: "Slovenian superstar Tadej (7)",
+        8: "Dutch classics phenomenon Mathieu van der ___ (10)",
+        11: "Mexican Grand Tour prospect Isaac del ___ (7)",
+        12: "French WorldTeam Soudal Quick-Step, shortened (6)",
+        14: "US bike brand ridden by Lidl's WorldTeam (4)"
       }
     };
 
     const clueNumbers = {
-      "0,2": 1, "0,3": 2, "0,12": 3, "0,17": 4,
-      "1,8": 5, "1,11": 6, "1,15": 7, "1,17": 8,
-      "2,6": 9,
-      "3,11": 10,
-      "4,2": 11, "4,14": 12, "4,19": 13,
-      "5,11": 14, "5,21": 15,
-      "6,5": 16,
-      "7,4": 17,
-      "8,0": 18,
-      "9,11": 19, "9,13": 20,
-      "10,3": 21, "10,9": 22,
-      "11,17": 23,
-      "12,7": 24,
-      "13,2": 25, "13,4": 26, "13,7": 27,
-      "15,11": 28, "15,15": 29, "15,22": 30,
-      "16,0": 31,
-      "17,9": 32,
-      "18,16": 33,
-      "19,6": 34, "19,15": 35,
-      "20,0": 36, "20,14": 37,
-      "21,5": 38
+      "0,1": 1, "0,5": 2, "0,6": 3, "0,12": 4,
+      "1,6": 5,
+      "3,0": 6,
+      "4,9": 7,
+      "5,4": 8, "5,8": 9,
+      "7,2": 10,
+      "8,12": 11,
+      "9,1": 12, "9,8": 13,
+      "11,10": 14,
+      "12,3": 15,
+      "14,1": 16
     };
 
     const solutionRows = [
-      "##ASTANA####G####H#####",
-      "###O####D##LANDA#ISRAEL",
-      "###U##INEOS#N##L#N#####",
-      "###D####L##UNO#P#D#####",
-      "##VANAERT###A#MERLIER##",
-      "###L####O##F###C#E#V#V#",
-      "#####P##R##E###I#Y#E#A#",
-      "####LONGOBORGHINI##N#N#",
-      "Q36##G#####R#######E#D#",
-      "U####A#####ALAPHILIPPE#",
-      "I##DECATHLON#R#####O#R#",
-      "C##S#A###O#D#K###N#E#P#",
-      "K##M#R#V#T#P#E###I#L#O#",
-      "S#M#C##INTERMARCHE###E#",
-      "T#O#O##N#O#E#####W###L#",
-      "E#V#F##G###VOLLERING##C",
-      "PHILIPSEN##O###F#A####A",
-      "##S#D##G#YATES###D####N",
-      "##T#I##A########KOPECKY",
-      "##A#S#BAHRAIN##U#M####O",
-      "BORA###R######CARAPAZ#N",
-      "#####PIDCOCK###E#######"
+      "#R##UAE#####P##",
+      "#O####VOLLERING",
+      "#G####E#####D##",
+      "ALPECIN#####C##",
+      "#I####E##P##O##",
+      "#C##V#P#KOPECKY",
+      "####A#O##G##K##",
+      "##VINGEGAARD###",
+      "####D#L##C##D##",
+      "#S##E###VANAERT",
+      "#O##R####R##L##",
+      "#U##P#####T#T##",
+      "#D#MOVISTAR#O##",
+      "#A##E#####E#R##",
+      "#LIDLTREK#K#O##"
     ];
     const solution = {};
     let direction = "across";
@@ -468,6 +488,8 @@
     function renderGrid() {
       grid.style.setProperty("--grid-cols", rows[0].length);
       grid.style.setProperty("--grid-rows", rows.length);
+      const phone = window.matchMedia("(max-width: 560px)").matches;
+      grid.style.setProperty("--cell-size", rows[0].length > 18 ? (phone ? "38px" : "32px") : "40px");
       rows.forEach((line, row) => {
         [...line].forEach((char, col) => {
           const cell = document.createElement("div");
@@ -485,8 +507,15 @@
 
           if (char === ".") {
             const input = document.createElement("input");
+            const letter = document.createElement("span");
+            letter.className = "letter";
             input.maxLength = 1;
+            input.readOnly = true;
             input.autocomplete = "off";
+            input.autocapitalize = "characters";
+            input.spellcheck = false;
+            input.setAttribute("autocorrect", "off");
+            input.setAttribute("enterkeyhint", "next");
             input.inputMode = "text";
             input.ariaLabel = `Row ${row + 1}, column ${col + 1}`;
             input.addEventListener("focus", () => selectCell(row, col));
@@ -498,7 +527,9 @@
               selectCell(row, col);
             });
             input.addEventListener("input", event => {
-              input.value = event.target.value.replace(/[^a-z]/gi, "").slice(-1).toUpperCase();
+              const typed = event.data && /^[a-z]$/i.test(event.data) ? event.data : event.target.value.replace(/[^a-z]/gi, "").slice(-1);
+              input.value = typed.toUpperCase();
+              letter.textContent = input.value;
               cell.classList.remove("wrong", "revealed");
               saveProgress();
               updateDoneClues();
@@ -506,6 +537,7 @@
             });
             input.addEventListener("keydown", event => handleKeys(event, row, col));
             cell.append(input);
+            cell.append(letter);
             cells.set(keyFor(row, col), { cell, input, row, col });
           }
 
@@ -576,11 +608,45 @@
       }
     }
 
+    function firstEntry() {
+      return cells.values().next().value;
+    }
+
+    function setEntryValue(entry, value) {
+      entry.input.value = value;
+      entry.cell.querySelector(".letter").textContent = value;
+      entry.cell.classList.remove("wrong", "revealed");
+      saveProgress();
+      updateDoneClues();
+    }
+
+    function typeLetter(letter) {
+      if (!selected || !/^[A-Z]$/.test(letter)) return;
+      const entry = cells.get(keyFor(selected.row, selected.col));
+      setEntryValue(entry, letter);
+      moveNext(selected.row, selected.col, direction, 1);
+    }
+
+    function deleteLetter() {
+      if (!selected) return;
+      const entry = cells.get(keyFor(selected.row, selected.col));
+      if (entry.input.value) {
+        setEntryValue(entry, "");
+      } else {
+        moveNext(selected.row, selected.col, direction, -1);
+      }
+    }
+
     function handleKeys(event, row, col) {
       const key = event.key;
-      if (key === "Backspace" && !event.target.value) {
+      if (/^[a-z]$/i.test(key)) {
         event.preventDefault();
-        moveNext(row, col, direction, -1);
+        typeLetter(key.toUpperCase());
+        return;
+      }
+      if (key === "Backspace" || key === "Delete") {
+        event.preventDefault();
+        deleteLetter();
         return;
       }
       if (key === "ArrowRight" || key === "ArrowLeft") {
@@ -603,12 +669,12 @@
     document.querySelector("#clear").addEventListener("click", () => {
       cells.forEach(({ input, cell }) => {
         input.value = "";
+        cell.querySelector(".letter").textContent = "";
         cell.classList.remove("wrong", "revealed");
       });
       saveProgress();
       updateDoneClues();
-      const first = cells.get("0,1");
-      first.input.focus();
+      firstEntry().input.focus();
     });
 
     document.querySelector("#check").addEventListener("click", () => {
@@ -636,6 +702,7 @@
       keys.forEach(key => {
         const { input, cell } = cells.get(key);
         input.value = solution[key];
+        cell.querySelector(".letter").textContent = input.value;
         cell.classList.remove("wrong");
         cell.classList.add("revealed");
       });
@@ -657,6 +724,22 @@
 
     document.querySelector("#print").addEventListener("click", () => window.print());
 
+    function renderKeypad() {
+      const keypad = document.querySelector("#keypad");
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(letter => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = letter;
+        button.addEventListener("click", () => typeLetter(letter));
+        keypad.append(button);
+      });
+      const back = document.createElement("button");
+      back.type = "button";
+      back.textContent = "Del";
+      back.addEventListener("click", deleteLetter);
+      keypad.append(back);
+    }
+
     solutionRows.forEach((line, row) => {
       [...line].forEach((char, col) => {
         if (char !== "#") solution[keyFor(row, col)] = char;
@@ -665,6 +748,7 @@
 
     renderGrid();
     renderClues();
+    renderKeypad();
     function saveProgress() {
       const progress = {};
       cells.forEach(({ input }, key) => {
@@ -678,7 +762,10 @@
         const progress = JSON.parse(localStorage.getItem(storageKey) || "{}");
         Object.entries(progress).forEach(([key, value]) => {
           const entry = cells.get(key);
-          if (entry && /^[A-Z]$/.test(value)) entry.input.value = value;
+          if (entry && /^[A-Z]$/.test(value)) {
+            entry.input.value = value;
+            entry.cell.querySelector(".letter").textContent = value;
+          }
         });
       } catch {
         localStorage.removeItem(storageKey);
@@ -705,7 +792,7 @@
 
     loadProgress();
     updateDoneClues();
-    cells.get("0,1").input.focus();
+    firstEntry().input.focus();
   </script>
 </body>
 </html>
