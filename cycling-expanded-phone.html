@@ -222,6 +222,87 @@
       font: 0.95rem/1.45 system-ui, sans-serif;
     }
 
+
+    .current-panel,
+    .timer,
+    .scratch,
+    .verification {
+      margin-top: 12px;
+      max-width: 620px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 250, 240, .82);
+      padding: 10px;
+      font-family: system-ui, sans-serif;
+    }
+
+    .current-panel h2,
+    .timer h2,
+    .scratch h2,
+    .verification h2 {
+      margin: 0 0 6px;
+      border: 0;
+      padding: 0;
+      font: 800 1rem/1.2 system-ui, sans-serif;
+    }
+
+    .current-clues {
+      display: grid;
+      gap: 6px;
+    }
+
+    .current-clue-line {
+      border-left: 4px solid var(--accent);
+      background: #d7ece8;
+      padding: 7px 8px;
+      border-radius: 6px;
+      line-height: 1.3;
+    }
+
+    li.related {
+      background: #f6d77b;
+      box-shadow: inset 0 0 0 1px #876e20;
+    }
+
+    .timer-row,
+    .scratch-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .timer-display {
+      min-width: 8ch;
+      font: 900 1.5rem/1 system-ui, sans-serif;
+      color: var(--accent);
+    }
+
+    .scratch textarea {
+      width: 100%;
+      min-height: 86px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fffaf0;
+      color: var(--ink);
+      padding: 8px;
+      font: 1rem/1.4 system-ui, sans-serif;
+    }
+
+    .verification p,
+    .verification ul {
+      margin: 0;
+      color: var(--muted);
+      font: .92rem/1.4 system-ui, sans-serif;
+    }
+
+    .verification ul {
+      margin-top: 6px;
+      padding-left: 18px;
+    }
+
+
     .keypad {
       position: fixed;
       left: 0;
@@ -355,6 +436,35 @@
       <section class="board-wrap" aria-label="Crossword grid">
         <div id="grid" class="grid"></div>
         <p class="note">Type letters into the grid. Click a square or a clue to highlight that answer. Use the arrow keys to move around.</p>
+
+        <div class="current-panel" aria-live="polite">
+          <h2>Current clue</h2>
+          <div id="current-clues" class="current-clues">Tap a square to show its clue here.</div>
+        </div>
+        <div class="timer">
+          <h2>Timer</h2>
+          <div class="timer-row">
+            <span id="timer-display" class="timer-display">00:00</span>
+            <button id="timer-toggle" type="button">Start</button>
+            <button id="timer-reset" type="button">Reset</button>
+          </div>
+        </div>
+        <div class="scratch">
+          <h2>Scratch pad</h2>
+          <textarea id="scratchpad" spellcheck="true" autocomplete="off" autocapitalize="words" placeholder="Try spellings here before entering them in the grid."></textarea>
+          <div class="scratch-actions">
+            <button id="scratch-clear" type="button">Clear scratch</button>
+          </div>
+        </div>
+        <div class="verification">
+          <h2>Answer checks</h2>
+          <p>Answers were checked against multiple cycling references where practical. Rider/team naming changes over time, so use these sources for spot checks.</p>
+          <ul>
+            <li><a href="https://www.uci.org/?page=rankings" target="_blank" rel="noopener">UCI rankings</a></li>
+            <li><a href="https://www.procyclingstats.com/" target="_blank" rel="noopener">ProCyclingStats</a></li>
+            <li><a href="https://firstcycling.com/" target="_blank" rel="noopener">FirstCycling</a></li>
+          </ul>
+        </div>
       </section>
 
       <section class="clues" aria-label="Crossword clues">
@@ -496,6 +606,92 @@
     let direction = "across";
     let selected = null;
     const storageKey = "duffers-x2-cycling-crossword-progress";
+    const timerStorageKey = storageKey + "-timer";
+    const scratchStorageKey = storageKey + "-scratch";
+    let timerState = { elapsed: 0, running: false, startedAt: 0 };
+    let timerInterval = null;
+
+    function clueInfo(row, col, dir) {
+      if (!hasClue(row, col, dir)) return null;
+      const no = startNumber(row, col, dir);
+      if (!no || !clues[dir][no]) return null;
+      return { dir, no, text: clues[dir][no], keys: answerCells(row, col, dir) };
+    }
+
+    function relatedClues(row, col) {
+      return [clueInfo(row, col, "across"), clueInfo(row, col, "down")].filter(Boolean);
+    }
+
+    function formatTime(ms) {
+      const total = Math.floor(ms / 1000);
+      const hours = Math.floor(total / 3600);
+      const minutes = Math.floor((total % 3600) / 60);
+      const seconds = total % 60;
+      const two = value => String(value).padStart(2, "0");
+      return hours ? hours + ":" + two(minutes) + ":" + two(seconds) : two(minutes) + ":" + two(seconds);
+    }
+
+    function currentElapsed() {
+      return timerState.elapsed + (timerState.running ? Date.now() - timerState.startedAt : 0);
+    }
+
+    function saveTimer() {
+      localStorage.setItem(timerStorageKey, JSON.stringify({ elapsed: currentElapsed(), running: timerState.running }));
+    }
+
+    function renderTimer() {
+      document.querySelector("#timer-display").textContent = formatTime(currentElapsed());
+      document.querySelector("#timer-toggle").textContent = timerState.running ? "Pause" : "Start";
+    }
+
+    function loadTimer() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(timerStorageKey) || "{}");
+        timerState.elapsed = Number(saved.elapsed) || 0;
+        timerState.running = Boolean(saved.running);
+        timerState.startedAt = Date.now();
+      } catch {
+        timerState = { elapsed: 0, running: false, startedAt: 0 };
+      }
+      renderTimer();
+      if (timerState.running) timerInterval = setInterval(renderTimer, 1000);
+    }
+
+    function toggleTimer() {
+      if (timerState.running) {
+        timerState.elapsed = currentElapsed();
+        timerState.running = false;
+        clearInterval(timerInterval);
+        timerInterval = null;
+      } else {
+        timerState.running = true;
+        timerState.startedAt = Date.now();
+        timerInterval = setInterval(renderTimer, 1000);
+      }
+      saveTimer();
+      renderTimer();
+    }
+
+    function resetTimer() {
+      timerState = { elapsed: 0, running: false, startedAt: 0 };
+      clearInterval(timerInterval);
+      timerInterval = null;
+      saveTimer();
+      renderTimer();
+    }
+
+    function loadScratchpad() {
+      const scratch = document.querySelector("#scratchpad");
+      scratch.value = localStorage.getItem(scratchStorageKey) || "";
+      scratch.addEventListener("input", () => localStorage.setItem(scratchStorageKey, scratch.value));
+      document.querySelector("#scratch-clear").addEventListener("click", () => {
+        scratch.value = "";
+        localStorage.removeItem(scratchStorageKey);
+        scratch.focus();
+      });
+    }
+
+
     const grid = document.querySelector("#grid");
     const cells = new Map();
 
@@ -646,7 +842,7 @@
 
     function highlight() {
       document.querySelectorAll(".cell").forEach(cell => cell.classList.remove("active", "selected"));
-      document.querySelectorAll("li").forEach(item => item.classList.remove("current"));
+      document.querySelectorAll("li").forEach(item => item.classList.remove("current", "related"));
       if (!selected) return;
 
       const answer = answerCells(selected.row, selected.col, direction);
@@ -656,7 +852,23 @@
       const no = startNumber(selected.row, selected.col, direction);
       const clue = document.querySelector(`li[data-dir="${direction}"][data-no="${no}"]`);
       if (clue) clue.classList.add("current");
+      updateCurrentClues();
     }
+    function updateCurrentClues() {
+      const holder = document.querySelector("#current-clues");
+      if (!selected) {
+        holder.textContent = "Tap a square to show its clue here.";
+        return;
+      }
+      const related = relatedClues(selected.row, selected.col);
+      holder.innerHTML = related.map(({ dir, no, text }) => '<div class="current-clue-line"><strong>' + no + ' ' + dir[0].toUpperCase() + dir.slice(1) + '</strong> ' + text + '</div>').join("");
+      related.forEach(({ dir, no }) => {
+        const item = document.querySelector('li[data-dir="' + dir + '"][data-no="' + no + '"]');
+        if (item) item.classList.add("related");
+      });
+    }
+
+
 
     function moveNext(row, col, dir, step) {
       let r = row + (dir === "down" ? step : 0);
@@ -852,6 +1064,15 @@
         item.classList.toggle("done", complete);
       });
     }
+    document.querySelector("#timer-toggle").addEventListener("click", toggleTimer);
+    document.querySelector("#timer-reset").addEventListener("click", resetTimer);
+    window.addEventListener("beforeunload", () => {
+      saveTimer();
+      saveProgress();
+    });
+    loadTimer();
+    loadScratchpad();
+
 
     loadProgress();
     updateDoneClues();
