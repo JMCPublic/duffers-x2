@@ -243,6 +243,10 @@
       font-size: 1rem;
     }
 
+    .keypad .wide {
+      grid-column: span 2;
+    }
+
     @media (max-width: 900px) {
       .layout {
         grid-template-columns: 1fr;
@@ -557,6 +561,14 @@
             const input = document.createElement("input");
             const letter = document.createElement("span");
             letter.className = "letter";
+            cell.addEventListener("click", () => {
+              const other = direction === "across" ? "down" : "across";
+              if (selected && selected.row === row && selected.col === col && hasClue(row, col, other)) {
+                direction = other;
+              }
+              selectCell(row, col);
+              input.focus();
+            });
             input.maxLength = 1;
             input.readOnly = true;
             input.autocomplete = "off";
@@ -678,11 +690,12 @@
     function deleteLetter() {
       if (!selected) return;
       const entry = cells.get(keyFor(selected.row, selected.col));
-      if (entry.input.value) {
-        setEntryValue(entry, "");
-      } else {
-        moveNext(selected.row, selected.col, direction, -1);
-      }
+      setEntryValue(entry, "");
+    }
+
+    function stepSelection(step) {
+      if (!selected) return;
+      moveNext(selected.row, selected.col, direction, step);
     }
 
     function handleKeys(event, row, col) {
@@ -774,18 +787,20 @@
 
     function renderKeypad() {
       const keypad = document.querySelector("#keypad");
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(letter => {
+      const makeButton = (label, action, className = "") => {
         const button = document.createElement("button");
         button.type = "button";
-        button.textContent = letter;
-        button.addEventListener("click", () => typeLetter(letter));
+        button.textContent = label;
+        if (className) button.className = className;
+        button.addEventListener("click", action);
         keypad.append(button);
+      };
+      makeButton("Back", () => stepSelection(-1), "wide");
+      makeButton("Clear", deleteLetter, "wide");
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(letter => {
+        makeButton(letter, () => typeLetter(letter));
       });
-      const back = document.createElement("button");
-      back.type = "button";
-      back.textContent = "Del";
-      back.addEventListener("click", deleteLetter);
-      keypad.append(back);
+      makeButton("Next", () => stepSelection(1), "wide");
     }
 
     solutionRows.forEach((line, row) => {
