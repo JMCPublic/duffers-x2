@@ -1,5 +1,8 @@
-# duffers x 2 Cycling Crossword
+# duffers x 2 Cycling Crosswords
 
-A standalone cyclist-themed crossword page.
+A small static site for cyclist-themed crossword pages.
 
-Open `index.html` in a browser, or publish this folder with GitHub Pages.
+Open `index.html` for the chooser page, then pick:
+
+- `cycling-original.html`
+- `cycling-expanded.html`
